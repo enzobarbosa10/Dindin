@@ -12,11 +12,7 @@ interface TransactionTableProps {
   onDelete: (id: string) => void;
 }
 
-<<<<<<< HEAD
-export const TransactionTable: React.FC<TransactionTableProps> = ({ transactions, type, title }) => {
-=======
 export const TransactionTable: React.FC<TransactionTableProps> = ({ transactions, type, title, onEdit, onDelete }) => {
->>>>>>> 18f73ce9c6a6698752ffe3e34aa505ecb8948855
   const filtered = transactions.filter(t => t.type === type);
 
   return (

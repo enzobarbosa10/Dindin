@@ -8,11 +8,7 @@ interface DashboardProps {
   summary: DashboardSummary;
 }
 
-<<<<<<< HEAD
-export const Dashboard: React.FC<DashboardProps> = ({ summary }) => {
-=======
 export const Dashboard: React.FC<DashboardProps> = React.memo(({ summary }) => {
->>>>>>> 18f73ce9c6a6698752ffe3e34aa505ecb8948855
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
       {/* Caixa (Receitas) */}

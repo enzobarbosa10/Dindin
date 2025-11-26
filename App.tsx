@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { Wallet, Trash2 } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { Wallet, Settings, ChevronLeft, ChevronRight, LogOut, User as UserIcon, Info } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { TransactionForm } from './components/TransactionForm';
 import { TransactionTable } from './components/TransactionList';
@@ -8,9 +8,10 @@ import { FinancialChart } from './components/FinancialChart';
 import { CategoryBreakdown } from './components/CategoryBreakdown';
 import { BillList } from './components/BillList';
 import { SavingsGoal } from './components/SavingsGoal';
-import { ConfirmModal } from './components/ConfirmModal';
-import { ToastProvider, useToast } from './context/ToastContext';
-import { Transaction, Bill, DashboardSummary, TransactionType } from './types';
+import { CategoryManager } from './components/CategoryManager';
+import { LandingPage } from './components/LandingPage';
+import { AuthScreen } from './components/AuthScreen';
+import { Transaction, Bill, DashboardSummary, TransactionType, User } from './types';
 import { getCurrentMonthYear, getMonthName } from './utils';
 
 // Seed data to match user request
@@ -31,67 +32,131 @@ const SEED_BILLS: Bill[] = [
   { id: '103', description: 'Academia', amount: 90.00, dueDate: '2025-11-10', status: 'paid', accountType: 'Crédito' },
 ];
 
-const AppContent: React.FC = () => {
-  const { addToast } = useToast();
-  // --- State ---
+const DEFAULT_CATEGORIES = ['Comida', 'Luxos', 'Contas', 'Transporte', 'Depósito', 'Necessidades'];
+
+type ViewState = 'landing' | 'login' | 'register' | 'dashboard';
+
+const App: React.FC = () => {
+  // --- Global State ---
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentView, setCurrentView] = useState<ViewState>('landing');
+
+  // --- Data State ---
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [bills, setBills] = useState<Bill[]>([]);
-  const [savingsGoal, setSavingsGoal] = useState(2000);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
+  const [savingsGoal, setSavingsGoal] = useState(2000); 
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
   
-  // Modal States
-  const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; type: 'transaction' | 'bill' | null; id: string | null }>({
-    isOpen: false,
-    type: null,
-    id: null,
-  });
+  // Filtering
+  const [currentDate, setCurrentDate] = useState(getCurrentMonthYear());
 
-  // --- Persistence / Seeding ---
+  // Modal / Editing State
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
+  const [editingItem, setEditingItem] = useState<Transaction | Bill | null>(null);
+
+  // --- Auth & Navigation Logic ---
+
   useEffect(() => {
-    try {
-      const savedTransactions = localStorage.getItem('fin_transactions_v2');
-      const savedBills = localStorage.getItem('fin_bills_v2');
-      const savedCategories = localStorage.getItem('fin_categories');
-      const isFirstVisit = !localStorage.getItem('fin_first_visit');
-
-    // Carregar transações
-    if (savedTransactions) {
-      try {
-        setTransactions(JSON.parse(savedTransactions));
-      } catch (error) {
-        console.error('Erro ao carregar transações:', error);
-        setTransactions(SEED_TRANSACTIONS);
-      }
-    } else {
-      setTransactions(SEED_TRANSACTIONS);
+    // Check if user was previously logged in
+    const savedUserStr = localStorage.getItem('dindin_current_user');
+    if (savedUserStr) {
+      const user = JSON.parse(savedUserStr);
+      setCurrentUser(user);
+      setCurrentView('dashboard');
     }
-
-    // Carregar contas
-    if (savedBills) {
-      try {
-        setBills(JSON.parse(savedBills));
-      } catch (error) {
-        console.error('Erro ao carregar contas:', error);
-        setBills(SEED_BILLS);
-      }
-    } else {
-      setBills(SEED_BILLS);
-    }
-    
-    // Marcar como carregado
-    setIsLoaded(true);
   }, []);
 
+  const handleLoginSuccess = (user: User) => {
+    setCurrentUser(user);
+    localStorage.setItem('dindin_current_user', JSON.stringify(user));
+    setCurrentView('dashboard');
+  };
+
+  const handleGuestLogin = () => {
+    const guestUser: User = {
+      name: 'Visitante',
+      email: 'guest@dindin.app',
+      isGuest: true
+    };
+    // We do NOT save guest user to 'dindin_current_user' effectively,
+    // or if we do, we might want to distinguish. 
+    // For simplicity, we can save it so refreshing keeps the session active.
+    handleLoginSuccess(guestUser);
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem('dindin_current_user');
+    setCurrentView('landing');
+    setTransactions([]);
+    setBills([]);
+  };
+
+  // --- Data Loading Logic (User Dependent) ---
+  
+  // Load data whenever currentUser changes
   useEffect(() => {
-    if (isLoaded) {
-      localStorage.setItem('fin_transactions_v2', JSON.stringify(transactions));
-      localStorage.setItem('fin_bills_v2', JSON.stringify(bills));
-      localStorage.setItem('fin_categories', JSON.stringify(categories));
+    if (!currentUser) return;
+
+    const userEmail = currentUser.email;
+    const transKey = `fin_transactions_${userEmail}`;
+    const billsKey = `fin_bills_${userEmail}`;
+    const catsKey = `fin_categories_${userEmail}`;
+    const firstVisitKey = `fin_first_visit_${userEmail}`;
+
+    try {
+      const savedTransactions = localStorage.getItem(transKey);
+      const savedBills = localStorage.getItem(billsKey);
+      const savedCategories = localStorage.getItem(catsKey);
+      const isFirstVisit = !localStorage.getItem(firstVisitKey);
+
+      if (savedTransactions) {
+        setTransactions(JSON.parse(savedTransactions));
+      } else if (isFirstVisit) {
+        // Seed new users with data so the app looks good
+        setTransactions(SEED_TRANSACTIONS);
+      } else {
+        setTransactions([]);
+      }
+
+      if (savedBills) {
+        setBills(JSON.parse(savedBills));
+      } else if (isFirstVisit) {
+        setBills(SEED_BILLS);
+      } else {
+        setBills([]);
+      }
+
+      if (savedCategories) {
+        setCategories(JSON.parse(savedCategories));
+      } else {
+        setCategories(DEFAULT_CATEGORIES);
+      }
+
+      if (isFirstVisit) {
+        localStorage.setItem(firstVisitKey, 'true');
+      }
+    } catch (error) {
+      console.error("Failed to load user data", error);
     }
-  }, [transactions, bills, categories, isLoaded]);
+    
+    setIsDataLoaded(true);
+  }, [currentUser]);
+
+  // Save data whenever it changes (if user is logged in)
+  useEffect(() => {
+    if (!currentUser || !isDataLoaded) return;
+
+    const userEmail = currentUser.email;
+    localStorage.setItem(`fin_transactions_${userEmail}`, JSON.stringify(transactions));
+    localStorage.setItem(`fin_bills_${userEmail}`, JSON.stringify(bills));
+    localStorage.setItem(`fin_categories_${userEmail}`, JSON.stringify(categories));
+  }, [transactions, bills, categories, currentUser, isDataLoaded]);
+
 
   // --- Handlers ---
-  const addTransaction = (description: string, amount: number, type: TransactionType, date: string, category: string) => {
+  const addTransaction = useCallback((description: string, amount: number, type: TransactionType, date: string, category: string) => {
     const newTransaction: Transaction = {
       id: Date.now().toString(),
       description,
@@ -101,19 +166,18 @@ const AppContent: React.FC = () => {
       category
     };
     setTransactions(prev => [newTransaction, ...prev]);
-    addToast('Transação adicionada com sucesso!', 'success');
-  };
+  }, []);
 
-  const editTransaction = (id: string, description: string, amount: number, type: TransactionType, date: string, category: string) => {
+  const editTransaction = useCallback((id: string, description: string, amount: number, type: TransactionType, date: string, category: string) => {
     setTransactions(prev => prev.map(t => t.id === id ? { ...t, description, amount, type, date, category } : t));
     setEditingItem(null);
-  };
+  }, []);
 
-  const deleteTransaction = (id: string) => {
+  const deleteTransaction = useCallback((id: string) => {
     setTransactions(prev => prev.filter(t => t.id !== id));
-  };
+  }, []);
 
-  const addBill = (description: string, amount: number, dueDate: string, installmentCurrent: string, installmentTotal: string, accountType: string) => {
+  const addBill = useCallback((description: string, amount: number, dueDate: string, installmentCurrent: string, installmentTotal: string, accountType: string) => {
     const newBill: Bill = {
       id: Date.now().toString(),
       description,
@@ -125,10 +189,9 @@ const AppContent: React.FC = () => {
       accountType: accountType || 'Geral'
     };
     setBills(prev => [...prev, newBill].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()));
-    addToast('Conta adicionada com sucesso!', 'success');
-  };
+  }, []);
 
-  const editBill = (id: string, description: string, amount: number, dueDate: string, installmentCurrent: string, installmentTotal: string, accountType: string) => {
+  const editBill = useCallback((id: string, description: string, amount: number, dueDate: string, installmentCurrent: string, installmentTotal: string, accountType: string) => {
      setBills(prev => prev.map(b => b.id === id ? { 
        ...b, 
        description, 
@@ -139,41 +202,48 @@ const AppContent: React.FC = () => {
        accountType 
      } : b).sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()));
      setEditingItem(null);
-  };
+  }, []);
 
-  const deleteBill = (id: string) => {
+  const deleteBill = useCallback((id: string) => {
     setBills(prev => prev.filter(b => b.id !== id));
-  };
+  }, []);
 
-  const toggleBillStatus = (id: string) => {
+  const toggleBillStatus = useCallback((id: string) => {
     setBills(prev => prev.map(b => b.id === id ? { ...b, status: b.status === 'paid' ? 'pending' : 'paid' } : b));
-  };
+  }, []);
 
-  const deleteTransaction = (id: string) => {
-    setTransactions(prev => prev.filter(t => t.id !== id));
-  };
+  const changeMonth = useCallback((direction: 'prev' | 'next') => {
+    setCurrentDate(prev => {
+      let newMonth = prev.month + (direction === 'next' ? 1 : -1);
+      let newYear = prev.year;
+      
+      if (newMonth > 11) {
+        newMonth = 0;
+        newYear++;
+      } else if (newMonth < 0) {
+        newMonth = 11;
+        newYear--;
+      }
+      
+      return { month: newMonth, year: newYear };
+    });
+  }, []);
 
-  const deleteBill = (id: string) => {
-    setBills(prev => prev.filter(b => b.id !== id));
-  };
+  // --- Filtered Data ---
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter(t => {
+      // Simple date parsing. In production use a library like date-fns
+      const [y, m] = t.date.split('-').map(Number);
+      return y === currentDate.year && (m - 1) === currentDate.month;
+    });
+  }, [transactions, currentDate]);
 
-  const handleConfirmDelete = () => {
-    if (deleteModal.type === 'transaction' && deleteModal.id) {
-      deleteTransaction(deleteModal.id);
-      addToast('Transação deletada com sucesso!', 'success');
-    } else if (deleteModal.type === 'bill' && deleteModal.id) {
-      deleteBill(deleteModal.id);
-      addToast('Conta deletada com sucesso!', 'success');
-    } else if (deleteModal.type === null && deleteModal.id === null) {
-      // Clear all data
-      setTransactions([]);
-      setBills([]);
-      localStorage.removeItem('fin_transactions_v2');
-      localStorage.removeItem('fin_bills_v2');
-      addToast('Todos os dados foram deletados!', 'success');
-    }
-    setDeleteModal({ isOpen: false, type: null, id: null });
-  };
+  const filteredBills = useMemo(() => {
+    return bills.filter(b => {
+      const [y, m] = b.dueDate.split('-').map(Number);
+      return y === currentDate.year && (m - 1) === currentDate.month;
+    });
+  }, [bills, currentDate]);
 
   // --- Computed ---
   const summary: DashboardSummary = useMemo(() => {
@@ -193,18 +263,29 @@ const AppContent: React.FC = () => {
       .reduce((acc, curr) => acc + curr.amount, 0);
   }, [filteredTransactions]);
 
-  // --- Layout ---
-  if (!isLoaded) {
+  // --- Render Views ---
+
+  if (currentView === 'landing') {
     return (
-      <div className="min-h-screen bg-[#020617] text-gray-100 font-sans flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
-          <p className="text-gray-400">Carregando suas finanças...</p>
-        </div>
-      </div>
+      <LandingPage 
+        onGetStarted={() => setCurrentView('register')} 
+        onLogin={() => setCurrentView('login')} 
+        onGuestAccess={handleGuestLogin}
+      />
     );
   }
 
+  if (currentView === 'login' || currentView === 'register') {
+    return (
+      <AuthScreen 
+        initialMode={currentView === 'register' ? 'register' : 'login'} 
+        onAuthSuccess={handleLoginSuccess}
+        onGuestAccess={handleGuestLogin}
+      />
+    );
+  }
+
+  // --- Dashboard View ---
   return (
     <div className="min-h-screen bg-[#020617] text-gray-100 font-sans pb-20">
       
@@ -219,19 +300,52 @@ const AppContent: React.FC = () => {
               Din<span className="text-emerald-500">din</span>
             </h1>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="text-xs text-gray-500">Novembro 2025</div>
-            <button
-              onClick={() => setDeleteModal({ isOpen: true, type: null, id: null })}
-              className="text-xs px-3 py-1.5 bg-red-600/20 text-red-400 hover:bg-red-600/30 rounded border border-red-600/30 flex items-center gap-1 transition-colors"
-              aria-label="Limpar todos os dados"
-              title="Limpar todos os dados"
+
+          <div className="flex items-center gap-4 bg-slate-800/50 rounded-full px-2 py-1 border border-slate-700">
+            <button onClick={() => changeMonth('prev')} className="p-1 hover:text-white text-gray-400 transition-colors">
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <span className="text-sm font-medium w-32 text-center select-none">
+              {getMonthName(currentDate.month)} {currentDate.year}
+            </span>
+            <button onClick={() => changeMonth('next')} className="p-1 hover:text-white text-gray-400 transition-colors">
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="flex items-center gap-3">
+             <div className="hidden md:flex items-center gap-2 mr-2">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${currentUser?.isGuest ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' : 'bg-gradient-to-tr from-emerald-500 to-blue-500 text-white'}`}>
+                  {currentUser?.isGuest ? <UserIcon className="w-4 h-4" /> : currentUser?.name.charAt(0).toUpperCase()}
+                </div>
+                <span className="text-sm text-gray-300 max-w-[100px] truncate">{currentUser?.name}</span>
+             </div>
+
+            <button 
+              onClick={() => setShowCategoryManager(true)}
+              className="p-2 text-gray-400 hover:text-white transition-colors"
+              title="Gerenciar Categorias"
             >
-              <Trash2 className="w-4 h-4" />
-              Limpar dados
+              <Settings className="w-5 h-5" />
+            </button>
+
+            <button 
+              onClick={handleLogout}
+              className="p-2 text-gray-400 hover:text-red-400 transition-colors border-l border-gray-700 ml-1 pl-3"
+              title="Sair"
+            >
+              <LogOut className="w-5 h-5" />
             </button>
           </div>
         </div>
+        
+        {/* Guest Warning Banner */}
+        {currentUser?.isGuest && (
+          <div className="bg-orange-600/10 border-b border-orange-600/20 py-2 px-4 text-center text-xs font-medium text-orange-400 flex items-center justify-center gap-2">
+            <Info className="w-3.5 h-3.5" />
+            Modo Visitante: Seus dados estão salvos neste navegador. Crie uma conta para sincronizar (em breve).
+          </div>
+        )}
       </header>
 
       <main className="max-w-7xl mx-auto px-4 space-y-6">
@@ -315,26 +429,7 @@ const AppContent: React.FC = () => {
         onAdd={(cat) => setCategories([...categories, cat])}
         onRemove={(cat) => setCategories(categories.filter(c => c !== cat))}
       />
-
-      <ConfirmModal
-        isOpen={deleteModal.isOpen}
-        title="Confirmar Deleção"
-        message={`Tem certeza que deseja deletar este ${deleteModal.type === 'transaction' ? 'transação' : 'conta'}? Esta ação não pode ser desfeita.`}
-        confirmText="Deletar"
-        cancelText="Cancelar"
-        isDangerous={true}
-        onConfirm={handleConfirmDelete}
-        onCancel={() => setDeleteModal({ isOpen: false, type: null, id: null })}
-      />
     </div>
-  );
-};
-
-const App: React.FC = () => {
-  return (
-    <ToastProvider>
-      <AppContent />
-    </ToastProvider>
   );
 };
 

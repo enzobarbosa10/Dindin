@@ -2,11 +2,7 @@
 import React, { useMemo } from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { Transaction } from '../types';
-<<<<<<< HEAD
-import { CHART_COLORS } from '../utils';
-=======
 import { formatCurrency } from '../utils';
->>>>>>> 18f73ce9c6a6698752ffe3e34aa505ecb8948855
 
 interface FinancialChartProps {
   transactions: Transaction[];
@@ -27,6 +23,9 @@ export const FinancialChart: React.FC<FinancialChartProps> = ({ transactions, ca
     }).filter(item => item.value > 0);
   }, [transactions, categories]);
 
+  // Specific colors for the requested look (vibrant but professional)
+  const COLORS = ['#F59E0B', '#EF4444', '#3B82F6', '#10B981', '#8B5CF6', '#EC4899', '#6366F1'];
+
   return (
     <div className="bg-card p-4 rounded-xl border border-gray-700/50 shadow-lg h-full flex flex-col">
       <h3 className="text-lg font-bold text-white mb-2 text-center">Distribuição</h3>
@@ -46,7 +45,7 @@ export const FinancialChart: React.FC<FinancialChartProps> = ({ transactions, ca
                 stroke="none"
               >
                 {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
               <Tooltip 

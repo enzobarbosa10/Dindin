@@ -9,10 +9,7 @@ interface CategoryBreakdownProps {
 }
 
 export const CategoryBreakdown: React.FC<CategoryBreakdownProps> = ({ transactions, categories }) => {
-<<<<<<< HEAD
-=======
 
->>>>>>> 18f73ce9c6a6698752ffe3e34aa505ecb8948855
   const expenses = transactions.filter(t => t.type === 'expense');
   const totalExpense = expenses.reduce((acc, curr) => acc + curr.amount, 0);
 

@@ -1,11 +1,7 @@
 
 import React from 'react';
 import { Bill } from '../types';
-<<<<<<< HEAD
-import { Calendar, CheckCircle2 } from 'lucide-react';
-=======
 import { Calendar, Edit2, Trash2 } from 'lucide-react';
->>>>>>> 18f73ce9c6a6698752ffe3e34aa505ecb8948855
 import { formatCurrency, formatDate } from '../utils';
 
 interface BillListProps {
@@ -15,11 +11,7 @@ interface BillListProps {
   onDelete: (id: string) => void;
 }
 
-<<<<<<< HEAD
-export const BillList: React.FC<BillListProps> = ({ bills, onToggleStatus }) => {
-=======
 export const BillList: React.FC<BillListProps> = ({ bills, onToggleStatus, onEdit, onDelete }) => {
->>>>>>> 18f73ce9c6a6698752ffe3e34aa505ecb8948855
   const getStatusStyle = (status: Bill['status'], dueDate: string) => {
     if (status === 'paid') return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
     

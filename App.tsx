@@ -8,6 +8,7 @@ import { CategoryBreakdown } from './components/CategoryBreakdown';
 import { BillList } from './components/BillList';
 import { SavingsGoal } from './components/SavingsGoal';
 import { ConfirmModal } from './components/ConfirmModal';
+import { ToastProvider, useToast } from './context/ToastContext';
 import { Transaction, Bill, DashboardSummary, TransactionType } from './types';
 
 // Specific categories as requested
@@ -31,7 +32,8 @@ const SEED_BILLS: Bill[] = [
   { id: '103', description: 'Academia', amount: 90.00, dueDate: '2025-11-10', status: 'paid', accountType: 'Crédito' },
 ];
 
-const App: React.FC = () => {
+const AppContent: React.FC = () => {
+  const { addToast } = useToast();
   // --- State ---
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [bills, setBills] = useState<Bill[]>([]);
@@ -50,18 +52,31 @@ const App: React.FC = () => {
     const savedTransactions = localStorage.getItem('fin_transactions_v2');
     const savedBills = localStorage.getItem('fin_bills_v2');
 
+    // Carregar transações
     if (savedTransactions) {
-      setTransactions(JSON.parse(savedTransactions));
+      try {
+        setTransactions(JSON.parse(savedTransactions));
+      } catch (error) {
+        console.error('Erro ao carregar transações:', error);
+        setTransactions(SEED_TRANSACTIONS);
+      }
     } else {
       setTransactions(SEED_TRANSACTIONS);
     }
 
+    // Carregar contas
     if (savedBills) {
-      setBills(JSON.parse(savedBills));
+      try {
+        setBills(JSON.parse(savedBills));
+      } catch (error) {
+        console.error('Erro ao carregar contas:', error);
+        setBills(SEED_BILLS);
+      }
     } else {
       setBills(SEED_BILLS);
     }
     
+    // Marcar como carregado
     setIsLoaded(true);
   }, []);
 
@@ -83,6 +98,7 @@ const App: React.FC = () => {
       category
     };
     setTransactions(prev => [newTransaction, ...prev]);
+    addToast('Transação adicionada com sucesso!', 'success');
   };
 
   const addBill = (description: string, amount: number, dueDate: string, installmentCurrent: string, installmentTotal: string, accountType: string) => {
@@ -97,6 +113,7 @@ const App: React.FC = () => {
       accountType: accountType || 'Geral'
     };
     setBills(prev => [...prev, newBill].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()));
+    addToast('Conta adicionada com sucesso!', 'success');
   };
 
   const toggleBillStatus = (id: string) => {
@@ -114,8 +131,17 @@ const App: React.FC = () => {
   const handleConfirmDelete = () => {
     if (deleteModal.type === 'transaction' && deleteModal.id) {
       deleteTransaction(deleteModal.id);
+      addToast('Transação deletada com sucesso!', 'success');
     } else if (deleteModal.type === 'bill' && deleteModal.id) {
       deleteBill(deleteModal.id);
+      addToast('Conta deletada com sucesso!', 'success');
+    } else if (deleteModal.type === null && deleteModal.id === null) {
+      // Clear all data
+      setTransactions([]);
+      setBills([]);
+      localStorage.removeItem('fin_transactions_v2');
+      localStorage.removeItem('fin_bills_v2');
+      addToast('Todos os dados foram deletados!', 'success');
     }
     setDeleteModal({ isOpen: false, type: null, id: null });
   };
@@ -139,6 +165,17 @@ const App: React.FC = () => {
   }, [transactions]);
 
   // --- Layout ---
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen bg-[#020617] text-gray-100 font-sans flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
+          <p className="text-gray-400">Carregando suas finanças...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#020617] text-gray-100 font-sans pb-20">
       
@@ -240,6 +277,14 @@ const App: React.FC = () => {
         onCancel={() => setDeleteModal({ isOpen: false, type: null, id: null })}
       />
     </div>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <ToastProvider>
+      <AppContent />
+    </ToastProvider>
   );
 };
 

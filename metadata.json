@@ -1,0 +1,5 @@
+{
+  "name": "Dindin - Controle Financeiro Pessoal",
+  "description": "Uma aplicação web intuitiva para gerenciamento de finanças pessoais, permitindo controle de receitas e despesas com dashboard em tempo real, conforme definido no PRD.",
+  "requestFramePermissions": []
+}

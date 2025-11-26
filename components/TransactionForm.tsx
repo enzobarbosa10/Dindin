@@ -1,20 +1,29 @@
 
-import React, { useState } from 'react';
-import { PlusCircle, Loader2, X } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
-import { TransactionType } from '../types';
+import React, { useState, useEffect } from 'react';
+import { PlusCircle, X, Save } from 'lucide-react';
+import { TransactionType, Transaction, Bill } from '../types';
 import { Button } from './Button';
 
 interface TransactionFormProps {
   onAddTransaction: (description: string, amount: number, type: TransactionType, date: string, category: string) => void;
+  onEditTransaction: (id: string, description: string, amount: number, type: TransactionType, date: string, category: string) => void;
   onAddBill: (description: string, amount: number, dueDate: string, installmentCurrent: string, installmentTotal: string, accountType: string) => void;
+  onEditBill: (id: string, description: string, amount: number, dueDate: string, installmentCurrent: string, installmentTotal: string, accountType: string) => void;
   categories: string[];
+  editingItem: Transaction | Bill | null;
+  onCloseEdit: () => void;
+  isBillMode?: boolean;
 }
 
 export const TransactionForm: React.FC<TransactionFormProps> = ({ 
   onAddTransaction,
+  onEditTransaction,
   onAddBill,
-  categories
+  onEditBill,
+  categories,
+  editingItem,
+  onCloseEdit,
+  isBillMode = false
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [tab, setTab] = useState<'transaction' | 'bill'>('transaction');
@@ -34,16 +43,62 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   const [instTotal, setInstTotal] = useState('');
   const [accountType, setAccountType] = useState('');
 
+  // Effect to populate form when editing
+  useEffect(() => {
+    if (editingItem) {
+      setIsOpen(true);
+      if ('dueDate' in editingItem) {
+        // It's a bill
+        setTab('bill');
+        setBillDesc(editingItem.description);
+        setBillAmount(editingItem.amount.toString());
+        setDueDate(editingItem.dueDate);
+        setInstCurrent(editingItem.installmentCurrent?.toString() || '');
+        setInstTotal(editingItem.installmentTotal?.toString() || '');
+        setAccountType(editingItem.accountType);
+      } else {
+        // It's a transaction
+        setTab('transaction');
+        setDesc(editingItem.description);
+        setAmount(editingItem.amount.toString());
+        setType(editingItem.type);
+        setDate(editingItem.date);
+        setCategory(editingItem.category);
+      }
+    } else if (isBillMode) {
+      setTab('bill');
+    }
+  }, [editingItem, isBillMode]);
+
+  const resetForms = () => {
+    setDesc(''); setAmount(''); setType('expense'); setDate(new Date().toISOString().split('T')[0]); setCategory('');
+    setBillDesc(''); setBillAmount(''); setDueDate(new Date().toISOString().split('T')[0]); setInstCurrent(''); setInstTotal(''); setAccountType('');
+  };
+
+  const handleClose = () => {
+    setIsOpen(false);
+    onCloseEdit();
+    resetForms();
+  };
+
   const handleTransactionSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onAddTransaction(desc, parseFloat(amount), type, date, category || 'Outros');
-    setDesc(''); setAmount(''); setIsOpen(false);
+    if (editingItem && !('dueDate' in editingItem)) {
+      onEditTransaction(editingItem.id, desc, parseFloat(amount), type, date, category || 'Outros');
+    } else {
+      onAddTransaction(desc, parseFloat(amount), type, date, category || 'Outros');
+    }
+    handleClose();
   };
 
   const handleBillSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onAddBill(billDesc, parseFloat(billAmount), dueDate, instCurrent, instTotal, accountType);
-    setBillDesc(''); setBillAmount(''); setInstCurrent(''); setInstTotal(''); setIsOpen(false);
+    if (editingItem && 'dueDate' in editingItem) {
+      onEditBill(editingItem.id, billDesc, parseFloat(billAmount), dueDate, instCurrent, instTotal, accountType);
+    } else {
+      onAddBill(billDesc, parseFloat(billAmount), dueDate, instCurrent, instTotal, accountType);
+    }
+    handleClose();
   };
 
   if (!isOpen) {
@@ -51,7 +106,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
       <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2">
          <Button 
           onClick={() => { setTab('transaction'); setIsOpen(true); }}
-          className="shadow-xl rounded-full w-14 h-14 flex items-center justify-center bg-emerald-600 hover:bg-emerald-500"
+          className="shadow-xl rounded-full w-14 h-14 flex items-center justify-center bg-emerald-600 hover:bg-emerald-500 hover:scale-105 transition-all"
         >
           <PlusCircle className="w-8 h-8" />
         </Button>
@@ -60,94 +115,104 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="bg-card w-full max-w-lg rounded-2xl shadow-2xl border border-gray-700 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm p-0 md:p-4 animate-in fade-in duration-200">
+      <div className="bg-card w-full md:max-w-lg rounded-t-2xl md:rounded-2xl shadow-2xl border border-gray-700 overflow-hidden flex flex-col max-h-[90vh]">
         <div className="flex justify-between items-center p-4 border-b border-gray-700 bg-gray-800/50">
           <div className="flex gap-4">
             <button 
-              onClick={() => setTab('transaction')}
-              className={`text-sm font-bold pb-1 border-b-2 transition-colors ${tab === 'transaction' ? 'text-white border-primary' : 'text-gray-400 border-transparent'}`}
+              type="button"
+              onClick={() => !editingItem && setTab('transaction')}
+              disabled={!!editingItem}
+              className={`text-sm font-bold pb-1 border-b-2 transition-colors ${tab === 'transaction' ? 'text-white border-primary' : 'text-gray-400 border-transparent'} ${editingItem ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
-              Nova Transação
+              {editingItem && !('dueDate' in editingItem) ? 'Editar Transação' : 'Nova Transação'}
             </button>
             <button 
-              onClick={() => setTab('bill')}
-              className={`text-sm font-bold pb-1 border-b-2 transition-colors ${tab === 'bill' ? 'text-white border-orange-500' : 'text-gray-400 border-transparent'}`}
+              type="button"
+              onClick={() => !editingItem && setTab('bill')}
+              disabled={!!editingItem}
+              className={`text-sm font-bold pb-1 border-b-2 transition-colors ${tab === 'bill' ? 'text-white border-orange-500' : 'text-gray-400 border-transparent'} ${editingItem ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
-              Nova Conta/Parcela
+               {editingItem && 'dueDate' in editingItem ? 'Editar Conta' : 'Nova Conta'}
             </button>
           </div>
-          <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-white">
+          <button onClick={handleClose} className="text-gray-400 hover:text-white">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="p-6">
+        <div className="p-6 overflow-y-auto custom-scrollbar">
           {tab === 'transaction' ? (
             <form onSubmit={handleTransactionSubmit} className="space-y-4">
               <div>
                 <label className="text-xs text-gray-400">Descrição</label>
-                <input required value={desc} onChange={e => setDesc(e.target.value)} className="w-full bg-dark border border-gray-700 rounded p-2 text-white" />
+                <input required value={desc} onChange={e => setDesc(e.target.value)} className="w-full bg-dark border border-gray-700 rounded p-2 text-white focus:border-primary outline-none" placeholder="Ex: Mercado" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                    <label className="text-xs text-gray-400">Valor</label>
-                   <input type="number" step="0.01" required value={amount} onChange={e => setAmount(e.target.value)} className="w-full bg-dark border border-gray-700 rounded p-2 text-white" />
+                   <input type="number" step="0.01" min="0.01" required value={amount} onChange={e => setAmount(e.target.value)} className="w-full bg-dark border border-gray-700 rounded p-2 text-white focus:border-primary outline-none" />
                 </div>
                 <div>
                    <label className="text-xs text-gray-400">Data</label>
-                   <input type="date" required value={date} onChange={e => setDate(e.target.value)} className="w-full bg-dark border border-gray-700 rounded p-2 text-white" />
+                   <input type="date" required value={date} onChange={e => setDate(e.target.value)} className="w-full bg-dark border border-gray-700 rounded p-2 text-white focus:border-primary outline-none" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs text-gray-400">Tipo</label>
-                  <select value={type} onChange={e => setType(e.target.value as any)} className="w-full bg-dark border border-gray-700 rounded p-2 text-white">
+                  <select value={type} onChange={e => setType(e.target.value as any)} className="w-full bg-dark border border-gray-700 rounded p-2 text-white focus:border-primary outline-none">
                     <option value="expense">Despesa</option>
                     <option value="income">Entrada</option>
                   </select>
                 </div>
                 <div>
                    <label className="text-xs text-gray-400">Categoria</label>
-                   <select value={category} onChange={e => setCategory(e.target.value)} className="w-full bg-dark border border-gray-700 rounded p-2 text-white">
+                   <select value={category} onChange={e => setCategory(e.target.value)} className="w-full bg-dark border border-gray-700 rounded p-2 text-white focus:border-primary outline-none">
                      <option value="">Selecione...</option>
                      {categories.map(c => <option key={c} value={c}>{c}</option>)}
                    </select>
                 </div>
               </div>
-              <Button type="submit" className="w-full mt-4">Adicionar</Button>
+              <Button type="submit" className="w-full mt-4 flex justify-center items-center gap-2">
+                <Save className="w-4 h-4" />
+                {editingItem ? 'Salvar Alterações' : 'Adicionar Transação'}
+              </Button>
             </form>
           ) : (
             <form onSubmit={handleBillSubmit} className="space-y-4">
               <div>
                 <label className="text-xs text-gray-400">Descrição (ex: Luz, Cartão)</label>
-                <input required value={billDesc} onChange={e => setBillDesc(e.target.value)} className="w-full bg-dark border border-gray-700 rounded p-2 text-white" />
+                <input required value={billDesc} onChange={e => setBillDesc(e.target.value)} className="w-full bg-dark border border-gray-700 rounded p-2 text-white focus:border-orange-500 outline-none" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                    <label className="text-xs text-gray-400">Valor</label>
-                   <input type="number" step="0.01" required value={billAmount} onChange={e => setBillAmount(e.target.value)} className="w-full bg-dark border border-gray-700 rounded p-2 text-white" />
+                   <input type="number" step="0.01" min="0.01" required value={billAmount} onChange={e => setBillAmount(e.target.value)} className="w-full bg-dark border border-gray-700 rounded p-2 text-white focus:border-orange-500 outline-none" />
                 </div>
                 <div>
                    <label className="text-xs text-gray-400">Vencimento</label>
-                   <input type="date" required value={dueDate} onChange={e => setDueDate(e.target.value)} className="w-full bg-dark border border-gray-700 rounded p-2 text-white" />
+                   <input type="date" required value={dueDate} onChange={e => setDueDate(e.target.value)} className="w-full bg-dark border border-gray-700 rounded p-2 text-white focus:border-orange-500 outline-none" />
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-4">
                 <div>
                    <label className="text-xs text-gray-400">Parcela Atual</label>
-                   <input type="number" placeholder="1" value={instCurrent} onChange={e => setInstCurrent(e.target.value)} className="w-full bg-dark border border-gray-700 rounded p-2 text-white" />
+                   <input type="number" placeholder="1" value={instCurrent} onChange={e => setInstCurrent(e.target.value)} className="w-full bg-dark border border-gray-700 rounded p-2 text-white focus:border-orange-500 outline-none" />
                 </div>
                 <div>
                    <label className="text-xs text-gray-400">Total Parc.</label>
-                   <input type="number" placeholder="12" value={instTotal} onChange={e => setInstTotal(e.target.value)} className="w-full bg-dark border border-gray-700 rounded p-2 text-white" />
+                   <input type="number" placeholder="12" value={instTotal} onChange={e => setInstTotal(e.target.value)} className="w-full bg-dark border border-gray-700 rounded p-2 text-white focus:border-orange-500 outline-none" />
                 </div>
                 <div>
                    <label className="text-xs text-gray-400">Conta/Banco</label>
-                   <input type="text" placeholder="Nubank" value={accountType} onChange={e => setAccountType(e.target.value)} className="w-full bg-dark border border-gray-700 rounded p-2 text-white" />
+                   <input type="text" placeholder="Nubank" value={accountType} onChange={e => setAccountType(e.target.value)} className="w-full bg-dark border border-gray-700 rounded p-2 text-white focus:border-orange-500 outline-none" />
                 </div>
               </div>
-              <Button type="submit" className="w-full mt-4 bg-orange-600 hover:bg-orange-700">Agendar Conta</Button>
+              <Button type="submit" className="w-full mt-4 bg-orange-600 hover:bg-orange-700 flex justify-center items-center gap-2">
+                 <Save className="w-4 h-4" />
+                 {editingItem ? 'Salvar Conta' : 'Agendar Conta'}
+              </Button>
             </form>
           )}
         </div>

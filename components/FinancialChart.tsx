@@ -2,6 +2,7 @@
 import React, { useMemo } from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { Transaction } from '../types';
+import { formatCurrency } from '../utils';
 
 interface FinancialChartProps {
   transactions: Transaction[];
@@ -50,9 +51,7 @@ export const FinancialChart: React.FC<FinancialChartProps> = ({ transactions, ca
               <Tooltip 
                 contentStyle={{ backgroundColor: '#1e293b', borderColor: '#374151', color: '#f3f4f6', borderRadius: '8px' }}
                 itemStyle={{ color: '#f3f4f6' }}
-                formatter={(value: number) => 
-                  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
-                }
+                formatter={(value: number) => formatCurrency(value)}
               />
             </PieChart>
           </ResponsiveContainer>

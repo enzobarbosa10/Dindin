@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { Transaction } from '../types';
+import { formatCurrency, formatDate } from '../utils';
 
 interface TransactionTableProps {
   transactions: Transaction[];
@@ -9,18 +10,6 @@ interface TransactionTableProps {
 }
 
 export const TransactionTable: React.FC<TransactionTableProps> = ({ transactions, type, title }) => {
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
-  };
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`;
-  };
-
   const filtered = transactions.filter(t => t.type === type);
 
   return (

@@ -1,7 +1,8 @@
 
 import React from 'react';
 import { Bill } from '../types';
-import { Calendar, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Calendar, CheckCircle2 } from 'lucide-react';
+import { formatCurrency, formatDate } from '../utils';
 
 interface BillListProps {
   bills: Bill[];
@@ -9,19 +10,6 @@ interface BillListProps {
 }
 
 export const BillList: React.FC<BillListProps> = ({ bills, onToggleStatus }) => {
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
-  };
-
-  const formatDate = (dateStr: string) => {
-    // Simple formatter for DD/MM
-    const date = new Date(dateStr);
-    return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`;
-  };
-
   const getStatusStyle = (status: Bill['status'], dueDate: string) => {
     if (status === 'paid') return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
     

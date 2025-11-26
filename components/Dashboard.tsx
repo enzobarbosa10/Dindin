@@ -2,19 +2,13 @@
 import React from 'react';
 import { Wallet, TrendingUp, TrendingDown, Building2 } from 'lucide-react';
 import { DashboardSummary } from '../types';
+import { formatCurrency } from '../utils';
 
 interface DashboardProps {
   summary: DashboardSummary;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ summary }) => {
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
-  };
-
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
       {/* Caixa (Receitas) */}

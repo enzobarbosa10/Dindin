@@ -1,9 +1,9 @@
 
 import React, { useState } from 'react';
-import { PlusCircle, Loader2, X } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
+import { PlusCircle, X, AlertCircle } from 'lucide-react';
 import { TransactionType } from '../types';
 import { Button } from './Button';
+import { isValidAmount, isValidDate, isValidDescription } from '../utils';
 
 interface TransactionFormProps {
   onAddTransaction: (description: string, amount: number, type: TransactionType, date: string, category: string) => void;
@@ -33,17 +33,66 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   const [instCurrent, setInstCurrent] = useState('');
   const [instTotal, setInstTotal] = useState('');
   const [accountType, setAccountType] = useState('');
+  
+  // Error State
+  const [error, setError] = useState<string | null>(null);
 
   const handleTransactionSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onAddTransaction(desc, parseFloat(amount), type, date, category || 'Outros');
-    setDesc(''); setAmount(''); setIsOpen(false);
+    setError(null);
+
+    // Validações
+    if (!isValidDescription(desc)) {
+      setError('Descrição inválida (máximo 100 caracteres)');
+      return;
+    }
+    
+    const amountNum = parseFloat(amount);
+    if (!isValidAmount(amountNum)) {
+      setError('Valor deve ser positivo e menor que R$ 999.999,99');
+      return;
+    }
+
+    if (!isValidDate(date)) {
+      setError('Data inválida (máximo 1 ano no futuro)');
+      return;
+    }
+
+    onAddTransaction(desc, amountNum, type, date, category || 'Outros');
+    setDesc(''); 
+    setAmount(''); 
+    setError(null);
+    setIsOpen(false);
   };
 
   const handleBillSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onAddBill(billDesc, parseFloat(billAmount), dueDate, instCurrent, instTotal, accountType);
-    setBillDesc(''); setBillAmount(''); setInstCurrent(''); setInstTotal(''); setIsOpen(false);
+    setError(null);
+
+    // Validações
+    if (!isValidDescription(billDesc)) {
+      setError('Descrição inválida (máximo 100 caracteres)');
+      return;
+    }
+
+    const amountNum = parseFloat(billAmount);
+    if (!isValidAmount(amountNum)) {
+      setError('Valor deve ser positivo e menor que R$ 999.999,99');
+      return;
+    }
+
+    if (!isValidDate(dueDate, 365)) {
+      setError('Data inválida (máximo 1 ano no futuro)');
+      return;
+    }
+
+    onAddBill(billDesc, amountNum, dueDate, instCurrent, instTotal, accountType);
+    setBillDesc(''); 
+    setBillAmount(''); 
+    setInstCurrent(''); 
+    setInstTotal(''); 
+    setError(null);
+    setIsOpen(false);
   };
 
   if (!isOpen) {
@@ -83,6 +132,13 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
         </div>
 
         <div className="p-6">
+          {error && (
+            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-red-200">{error}</p>
+            </div>
+          )}
+
           {tab === 'transaction' ? (
             <form onSubmit={handleTransactionSubmit} className="space-y-4">
               <div>

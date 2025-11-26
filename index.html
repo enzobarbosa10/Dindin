@@ -28,6 +28,37 @@
         background-color: #020617;
         color: #f8fafc;
       }
+
+      /* Custom scrollbar styling */
+      .custom-scrollbar {
+        scrollbar-width: thin;
+        scrollbar-color: #4F46E5 #1e293b;
+      }
+
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: #1e293b;
+        border-radius: 4px;
+      }
+
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #4F46E5;
+        border-radius: 4px;
+        transition: background-color 0.3s;
+      }
+
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: #6366F1;
+      }
+
+      /* Aplicar scrollbar customizada para tabelas */
+      table tbody {
+        overflow-y: auto;
+      }
     </style>
   <script type="importmap">
 {
@@ -36,8 +67,7 @@
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
     "react/": "https://aistudiocdn.com/react@^19.2.0/",
     "react": "https://aistudiocdn.com/react@^19.2.0",
-    "recharts": "https://aistudiocdn.com/recharts@^3.5.0",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0"
+    "recharts": "https://aistudiocdn.com/recharts@^3.5.0"
   }
 }
 </script>

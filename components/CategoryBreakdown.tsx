@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { Transaction } from '../types';
+import { formatCurrency } from '../utils';
 
 interface CategoryBreakdownProps {
   transactions: Transaction[];
@@ -8,13 +9,6 @@ interface CategoryBreakdownProps {
 }
 
 export const CategoryBreakdown: React.FC<CategoryBreakdownProps> = ({ transactions, categories }) => {
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
-  };
-
   const expenses = transactions.filter(t => t.type === 'expense');
   const totalExpense = expenses.reduce((acc, curr) => acc + curr.amount, 0);
 

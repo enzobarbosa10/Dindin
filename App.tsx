@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Wallet } from 'lucide-react';
+import { Wallet, Trash2 } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { TransactionForm } from './components/TransactionForm';
 import { TransactionTable } from './components/TransactionList';
@@ -7,6 +7,7 @@ import { FinancialChart } from './components/FinancialChart';
 import { CategoryBreakdown } from './components/CategoryBreakdown';
 import { BillList } from './components/BillList';
 import { SavingsGoal } from './components/SavingsGoal';
+import { ConfirmModal } from './components/ConfirmModal';
 import { Transaction, Bill, DashboardSummary, TransactionType } from './types';
 
 // Specific categories as requested
@@ -34,8 +35,15 @@ const App: React.FC = () => {
   // --- State ---
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [bills, setBills] = useState<Bill[]>([]);
-  const [savingsGoal, setSavingsGoal] = useState(2000); // Exemplo meta
+  const [savingsGoal, setSavingsGoal] = useState(2000);
   const [isLoaded, setIsLoaded] = useState(false);
+  
+  // Modal States
+  const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; type: 'transaction' | 'bill' | null; id: string | null }>({
+    isOpen: false,
+    type: null,
+    id: null,
+  });
 
   // --- Persistence / Seeding ---
   useEffect(() => {
@@ -95,6 +103,23 @@ const App: React.FC = () => {
     setBills(prev => prev.map(b => b.id === id ? { ...b, status: b.status === 'paid' ? 'pending' : 'paid' } : b));
   };
 
+  const deleteTransaction = (id: string) => {
+    setTransactions(prev => prev.filter(t => t.id !== id));
+  };
+
+  const deleteBill = (id: string) => {
+    setBills(prev => prev.filter(b => b.id !== id));
+  };
+
+  const handleConfirmDelete = () => {
+    if (deleteModal.type === 'transaction' && deleteModal.id) {
+      deleteTransaction(deleteModal.id);
+    } else if (deleteModal.type === 'bill' && deleteModal.id) {
+      deleteBill(deleteModal.id);
+    }
+    setDeleteModal({ isOpen: false, type: null, id: null });
+  };
+
   // --- Computed ---
   const summary: DashboardSummary = useMemo(() => {
     const income = transactions.filter(t => t.type === 'income').reduce((acc, curr) => acc + curr.amount, 0);
@@ -128,7 +153,18 @@ const App: React.FC = () => {
               Din<span className="text-emerald-500">din</span>
             </h1>
           </div>
-          <div className="text-xs text-gray-500">Novembro 2025</div>
+          <div className="flex items-center gap-4">
+            <div className="text-xs text-gray-500">Novembro 2025</div>
+            <button
+              onClick={() => setDeleteModal({ isOpen: true, type: null, id: null })}
+              className="text-xs px-3 py-1.5 bg-red-600/20 text-red-400 hover:bg-red-600/30 rounded border border-red-600/30 flex items-center gap-1 transition-colors"
+              aria-label="Limpar todos os dados"
+              title="Limpar todos os dados"
+            >
+              <Trash2 className="w-4 h-4" />
+              Limpar dados
+            </button>
+          </div>
         </div>
       </header>
 
@@ -191,6 +227,17 @@ const App: React.FC = () => {
         onAddTransaction={addTransaction} 
         onAddBill={addBill}
         categories={FIXED_CATEGORIES}
+      />
+
+      <ConfirmModal
+        isOpen={deleteModal.isOpen}
+        title="Confirmar Deleção"
+        message={`Tem certeza que deseja deletar este ${deleteModal.type === 'transaction' ? 'transação' : 'conta'}? Esta ação não pode ser desfeita.`}
+        confirmText="Deletar"
+        cancelText="Cancelar"
+        isDangerous={true}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteModal({ isOpen: false, type: null, id: null })}
       />
     </div>
   );

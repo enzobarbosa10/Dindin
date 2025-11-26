@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Wallet, Trash2 } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
@@ -10,9 +11,7 @@ import { SavingsGoal } from './components/SavingsGoal';
 import { ConfirmModal } from './components/ConfirmModal';
 import { ToastProvider, useToast } from './context/ToastContext';
 import { Transaction, Bill, DashboardSummary, TransactionType } from './types';
-
-// Specific categories as requested
-const FIXED_CATEGORIES = ['Comida', 'Luxos', 'Contas', 'Transporte', 'Depósito', 'Necessidades'];
+import { getCurrentMonthYear, getMonthName } from './utils';
 
 // Seed data to match user request
 const SEED_TRANSACTIONS: Transaction[] = [
@@ -49,8 +48,11 @@ const AppContent: React.FC = () => {
 
   // --- Persistence / Seeding ---
   useEffect(() => {
-    const savedTransactions = localStorage.getItem('fin_transactions_v2');
-    const savedBills = localStorage.getItem('fin_bills_v2');
+    try {
+      const savedTransactions = localStorage.getItem('fin_transactions_v2');
+      const savedBills = localStorage.getItem('fin_bills_v2');
+      const savedCategories = localStorage.getItem('fin_categories');
+      const isFirstVisit = !localStorage.getItem('fin_first_visit');
 
     // Carregar transações
     if (savedTransactions) {
@@ -84,8 +86,9 @@ const AppContent: React.FC = () => {
     if (isLoaded) {
       localStorage.setItem('fin_transactions_v2', JSON.stringify(transactions));
       localStorage.setItem('fin_bills_v2', JSON.stringify(bills));
+      localStorage.setItem('fin_categories', JSON.stringify(categories));
     }
-  }, [transactions, bills, isLoaded]);
+  }, [transactions, bills, categories, isLoaded]);
 
   // --- Handlers ---
   const addTransaction = (description: string, amount: number, type: TransactionType, date: string, category: string) => {
@@ -101,6 +104,15 @@ const AppContent: React.FC = () => {
     addToast('Transação adicionada com sucesso!', 'success');
   };
 
+  const editTransaction = (id: string, description: string, amount: number, type: TransactionType, date: string, category: string) => {
+    setTransactions(prev => prev.map(t => t.id === id ? { ...t, description, amount, type, date, category } : t));
+    setEditingItem(null);
+  };
+
+  const deleteTransaction = (id: string) => {
+    setTransactions(prev => prev.filter(t => t.id !== id));
+  };
+
   const addBill = (description: string, amount: number, dueDate: string, installmentCurrent: string, installmentTotal: string, accountType: string) => {
     const newBill: Bill = {
       id: Date.now().toString(),
@@ -114,6 +126,23 @@ const AppContent: React.FC = () => {
     };
     setBills(prev => [...prev, newBill].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()));
     addToast('Conta adicionada com sucesso!', 'success');
+  };
+
+  const editBill = (id: string, description: string, amount: number, dueDate: string, installmentCurrent: string, installmentTotal: string, accountType: string) => {
+     setBills(prev => prev.map(b => b.id === id ? { 
+       ...b, 
+       description, 
+       amount, 
+       dueDate, 
+       installmentCurrent: installmentCurrent ? parseInt(installmentCurrent) : undefined,
+       installmentTotal: installmentTotal ? parseInt(installmentTotal) : undefined,
+       accountType 
+     } : b).sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()));
+     setEditingItem(null);
+  };
+
+  const deleteBill = (id: string) => {
+    setBills(prev => prev.filter(b => b.id !== id));
   };
 
   const toggleBillStatus = (id: string) => {
@@ -148,21 +177,21 @@ const AppContent: React.FC = () => {
 
   // --- Computed ---
   const summary: DashboardSummary = useMemo(() => {
-    const income = transactions.filter(t => t.type === 'income').reduce((acc, curr) => acc + curr.amount, 0);
-    const expense = transactions.filter(t => t.type === 'expense').reduce((acc, curr) => acc + curr.amount, 0);
+    const income = filteredTransactions.filter(t => t.type === 'income').reduce((acc, curr) => acc + curr.amount, 0);
+    const expense = filteredTransactions.filter(t => t.type === 'expense').reduce((acc, curr) => acc + curr.amount, 0);
     return {
       totalIncome: income,
       totalExpense: expense,
       balance: income - expense,
-      projectedBalance: 0 // Not used yet
+      projectedBalance: 0 
     };
-  }, [transactions]);
+  }, [filteredTransactions]);
 
   const currentSavings = useMemo(() => {
-    return transactions
+    return filteredTransactions
       .filter(t => t.category === 'Depósito' && t.type === 'expense')
       .reduce((acc, curr) => acc + curr.amount, 0);
-  }, [transactions]);
+  }, [filteredTransactions]);
 
   // --- Layout ---
   if (!isLoaded) {
@@ -183,10 +212,10 @@ const AppContent: React.FC = () => {
       <header className="bg-slate-900/80 backdrop-blur border-b border-gray-800 sticky top-0 z-50 mb-6">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="bg-emerald-600 p-1.5 rounded-lg">
+            <div className="bg-emerald-600 p-1.5 rounded-lg shadow-lg shadow-emerald-900/20">
               <Wallet className="w-5 h-5 text-white" />
             </div>
-            <h1 className="text-xl font-bold tracking-tight text-white">
+            <h1 className="text-xl font-bold tracking-tight text-white hidden sm:block">
               Din<span className="text-emerald-500">din</span>
             </h1>
           </div>
@@ -207,7 +236,7 @@ const AppContent: React.FC = () => {
 
       <main className="max-w-7xl mx-auto px-4 space-y-6">
         
-        {/* 1. Resumo Geral + 5. Conta Bancária */}
+        {/* 1. Resumo Geral */}
         <section>
           <Dashboard summary={summary} />
         </section>
@@ -223,19 +252,21 @@ const AppContent: React.FC = () => {
           {/* 3. Lista de Entradas (Coluna Esquerda) */}
           <div className="lg:col-span-4 h-[400px]">
              <TransactionTable 
-               transactions={transactions} 
+               transactions={filteredTransactions} 
                type="income" 
-               title="Entradas de Dinheiro" 
+               title="Entradas de Dinheiro"
+               onEdit={(t) => setEditingItem(t)}
+               onDelete={deleteTransaction}
              />
           </div>
 
           {/* 2. Gráfico de Pizza + 4. Índice de Gastos (Coluna Direita/Meio) */}
           <div className="lg:col-span-4 h-[400px]">
-            <FinancialChart transactions={transactions} categories={FIXED_CATEGORIES} />
+            <FinancialChart transactions={filteredTransactions} categories={categories} />
           </div>
 
            <div className="lg:col-span-4 h-[400px]">
-            <CategoryBreakdown transactions={transactions} categories={FIXED_CATEGORIES} />
+            <CategoryBreakdown transactions={filteredTransactions} categories={categories} />
           </div>
 
         </div>
@@ -245,16 +276,23 @@ const AppContent: React.FC = () => {
           <h3 className="text-lg font-bold text-white mb-4 pl-2 border-l-4 border-red-500">Gastos Detalhados</h3>
           <div className="h-[400px]">
             <TransactionTable 
-              transactions={transactions} 
+              transactions={filteredTransactions} 
               type="expense" 
-              title="Histórico de Despesas" 
+              title="Histórico de Despesas"
+              onEdit={(t) => setEditingItem(t)}
+              onDelete={deleteTransaction}
             />
           </div>
         </section>
 
         {/* 8. Contas a Vencer */}
         <section>
-          <BillList bills={bills} onToggleStatus={toggleBillStatus} />
+          <BillList 
+            bills={filteredBills} 
+            onToggleStatus={toggleBillStatus}
+            onEdit={(b) => setEditingItem(b)}
+            onDelete={deleteBill}
+          />
         </section>
 
       </main>
@@ -262,8 +300,20 @@ const AppContent: React.FC = () => {
       {/* Action Button & Modals */}
       <TransactionForm 
         onAddTransaction={addTransaction} 
+        onEditTransaction={editTransaction}
         onAddBill={addBill}
-        categories={FIXED_CATEGORIES}
+        onEditBill={editBill}
+        categories={categories}
+        editingItem={editingItem}
+        onCloseEdit={() => setEditingItem(null)}
+      />
+
+      <CategoryManager 
+        isOpen={showCategoryManager}
+        onClose={() => setShowCategoryManager(false)}
+        categories={categories}
+        onAdd={(cat) => setCategories([...categories, cat])}
+        onRemove={(cat) => setCategories(categories.filter(c => c !== cat))}
       />
 
       <ConfirmModal

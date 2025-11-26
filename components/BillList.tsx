@@ -1,15 +1,25 @@
 
 import React from 'react';
 import { Bill } from '../types';
+<<<<<<< HEAD
 import { Calendar, CheckCircle2 } from 'lucide-react';
+=======
+import { Calendar, Edit2, Trash2 } from 'lucide-react';
+>>>>>>> 18f73ce9c6a6698752ffe3e34aa505ecb8948855
 import { formatCurrency, formatDate } from '../utils';
 
 interface BillListProps {
   bills: Bill[];
   onToggleStatus: (id: string) => void;
+  onEdit: (bill: Bill) => void;
+  onDelete: (id: string) => void;
 }
 
+<<<<<<< HEAD
 export const BillList: React.FC<BillListProps> = ({ bills, onToggleStatus }) => {
+=======
+export const BillList: React.FC<BillListProps> = ({ bills, onToggleStatus, onEdit, onDelete }) => {
+>>>>>>> 18f73ce9c6a6698752ffe3e34aa505ecb8948855
   const getStatusStyle = (status: Bill['status'], dueDate: string) => {
     if (status === 'paid') return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
     
@@ -35,7 +45,7 @@ export const BillList: React.FC<BillListProps> = ({ bills, onToggleStatus }) => 
         </h3>
       </div>
       
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto custom-scrollbar">
         <table className="w-full text-sm text-left">
           <thead className="text-xs text-gray-400 uppercase bg-gray-800/50">
             <tr>
@@ -45,11 +55,12 @@ export const BillList: React.FC<BillListProps> = ({ bills, onToggleStatus }) => 
               <th className="px-4 py-3">Conta</th>
               <th className="px-4 py-3 text-right">Valor</th>
               <th className="px-4 py-3 text-center">Status</th>
+              <th className="px-4 py-3 text-center w-20">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-700">
             {bills.map((bill) => (
-              <tr key={bill.id} className="hover:bg-white/5 transition-colors">
+              <tr key={bill.id} className="hover:bg-white/5 transition-colors group">
                 <td className="px-4 py-3 font-medium text-white">
                   {formatDate(bill.dueDate)}
                 </td>
@@ -69,12 +80,27 @@ export const BillList: React.FC<BillListProps> = ({ bills, onToggleStatus }) => 
                     {getStatusLabel(bill.status, bill.dueDate)}
                   </button>
                 </td>
+                <td className="px-4 py-3 text-center">
+                   <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => onEdit(bill)} className="text-blue-400 hover:text-blue-300 p-1">
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button 
+                      onClick={() => {
+                        if(confirm('Tem certeza que deseja excluir?')) onDelete(bill.id);
+                      }} 
+                      className="text-red-400 hover:text-red-300 p-1"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </td>
               </tr>
             ))}
             {bills.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
-                  Nenhuma conta cadastrada para este mês.
+                <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                  Nenhuma conta encontrada.
                 </td>
               </tr>
             )}

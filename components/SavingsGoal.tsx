@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { Target } from 'lucide-react';
+import { formatCurrency } from '../utils';
 
 interface SavingsGoalProps {
   goal: number;
@@ -10,13 +11,6 @@ interface SavingsGoalProps {
 export const SavingsGoal: React.FC<SavingsGoalProps> = ({ goal, current }) => {
   const percentage = Math.min(100, Math.max(0, (current / goal) * 100));
   
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
-  };
-
   return (
     <div className="bg-card p-6 rounded-xl border border-gray-700/50 shadow-lg">
       <div className="flex items-center justify-between mb-4">
